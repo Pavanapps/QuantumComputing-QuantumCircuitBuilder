@@ -9,10 +9,11 @@ from qiskit import QuantumCircuit
 from qiskit.quantum_info import Statevector
 from qiskit_aer import AerSimulator
 from qiskit import transpile
-
+from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import logging
 
 
 
@@ -60,46 +61,128 @@ def reset_circuit(qubits: int = 2) -> QuantumCircuit:
 # Apply Gate
 # --------------------------------------------------------------------
 
+from typing import Optional
+
 def apply_gate(
     circuit: QuantumCircuit,
     gate: str,
-    target: int
+    target: int,
+    control: Optional[int] = None
 ):
     """
-    Apply a single gate to the selected qubit.
+    Apply a quantum gate.
+    Supports both single-qubit and controlled gates.
     """
 
     if circuit is None:
         raise ValueError("Circuit is None")
 
     gate = gate.upper()
-
+    logging.basicConfig(level=logging.INFO)
+    logging.info(
+        f"Gate={gate}, Control={control}, Target={target}"
+    )
     if target < 0 or target >= circuit.num_qubits:
         raise ValueError("Invalid target qubit.")
 
-    if gate == "H":
+    # ------------------------
+    # Single-qubit gates
+    # ------------------------
 
+    if gate == "H":
         circuit.h(target)
 
     elif gate == "X":
-
         circuit.x(target)
 
     elif gate == "Y":
-
         circuit.y(target)
 
     elif gate == "Z":
-
         circuit.z(target)
 
     elif gate == "S":
-
         circuit.s(target)
 
     elif gate == "T":
-
         circuit.t(target)
+
+    # ------------------------
+    # Two-qubit gates
+    # ------------------------
+
+    elif gate == "CX":
+
+        if control is None:
+            raise ValueError("CX gate requires a control qubit.")
+
+        if control == target:
+            raise ValueError(
+                "Control and target must be different."
+            )
+
+        circuit.cx(control, target)
+
+    elif gate == "CZ":
+
+        if control is None:
+            raise ValueError("CZ gate requires a control qubit.")
+
+        if control == target:
+            raise ValueError(
+                "Control and target must be different."
+            )
+
+        circuit.cz(control, target)
+
+    elif gate == "CH":
+
+        if control is None:
+            raise ValueError("CH gate requires a control qubit.")
+
+        if control == target:
+            raise ValueError(
+                "Control and target must differ."
+            )
+
+        circuit.ch(control, target)
+
+    elif gate == "CCX":
+
+        if control is None:
+            raise ValueError("CH gate requires a control qubit.")
+
+        if control == target:
+            raise ValueError(
+                "Control and target must differ."
+            )
+
+        circuit.ch(control, target)
+
+    elif gate == "SWAP":
+
+        if control is None:
+            raise ValueError("SWAP gate requires another qubit.")
+
+        if control == target:
+            raise ValueError(
+                "Control and target must be different."
+            )
+
+        circuit.swap(control, target)
+    elif gate == "CY":
+
+        if control is None:
+            raise ValueError("CY gate requires a control qubit.")
+
+        if control == target:
+            raise ValueError(
+                "Control and target must differ."
+            )
+
+        circuit.cy(control, target)
+    elif gate == "BARRIER":
+        circuit.barrier()
 
     else:
 
@@ -121,7 +204,12 @@ SUPPORTED_GATES = {
     "Y",
     "Z",
     "S",
-    "T"
+    "T",
+
+    "CX",
+    "CZ",
+    "CY",
+    "SWAP"
 
 }
 
@@ -145,23 +233,20 @@ def get_statistics(
     Return basic circuit statistics.
     """
 
+    measurement_count = sum(
+        1
+        for instruction in circuit.data
+        if instruction.operation.name == "measure"
+    )
+
     stats = {
-
         "qubits": circuit.num_qubits,
-
+        "clbits": circuit.num_clbits,
         "depth": circuit.depth(),
-
-        "size": circuit.size(),
-
+        "width": circuit.width(),
         "gate_count": len(circuit.data),
-
-        "measurements": sum(
-            1
-            for instruction, _, _
-            in circuit.data
-            if instruction.name == "measure"
-        )
-
+        "operations": dict(circuit.count_ops()),
+        "measurements": measurement_count
     }
 
     return stats
@@ -173,16 +258,18 @@ def get_statistics(
 
 
 def draw_circuit(
-    circuit,
-    output_folder,
-    filename="circuit.png"
-):
+    circuit: QuantumCircuit,
+    output_folder: Path,
+    filename: str = "circuit.png"
+) -> str:
     """
     Draw the circuit and save it as a PNG image.
     Returns the full path to the generated image.
     """
 
     os.makedirs(output_folder, exist_ok=True)
+    os.makedirs("projects", exist_ok=True)
+    os.makedirs("logs", exist_ok=True)
 
     image_path = output_folder / filename
 
@@ -317,38 +404,6 @@ def statevector_text(
         )
 
     return "\n".join(lines)
-
-
-# --------------------------------------------------------------------
-# Circuit Summary
-# --------------------------------------------------------------------
-
-def circuit_summary(
-    circuit: QuantumCircuit
-):
-
-    return {
-
-        "qubits": circuit.num_qubits,
-
-        "depth": circuit.depth(),
-
-        "width": circuit.width(),
-
-        "size": circuit.size(),
-
-        "operations": circuit.count_ops(),
-
-        "gate_count": len(circuit.data)
-
-    }
-
-
-# --------------------------------------------------------------------
-# Save OpenQASM
-# --------------------------------------------------------------------
-
-
 
 
 # --------------------------------------------------------------------
