@@ -1,80 +1,181 @@
-// ======================================================
-// Quantum Circuit Builder Pro
-// script.js
-// Part 1
-// ======================================================
+/******************************************************************************
+ * Quantum Circuit Builder Pro
+ * script.js
+ * Part 1
+ ******************************************************************************/
 
-let selectedGate = "H";
-let selectedTarget = 0;
+/* ==========================================================================
+   DOM ELEMENTS
+========================================================================== */
 
-// -----------------------------
-// DOM Elements
-// -----------------------------
-
-const gateButtons = document.querySelectorAll(".gate-btn");
-
-const targetSelect = document.getElementById("target");
+const gateSelect = document.getElementById("gate");
+const targetSelect = document.getElementById("target-qubit");
+const controlSelect = document.getElementById("control-qubit");
+const controlContainer = document.getElementById("control-container");
 
 const newCircuitBtn = document.getElementById("new-circuit");
-
 const applyGateBtn = document.getElementById("apply-gate");
-
 const simulateBtn = document.getElementById("simulate");
-
 const resetBtn = document.getElementById("reset");
+
+const saveCircuitBtn = document.getElementById("save-project");
+const loadCircuitBtn = document.getElementById("load-project");
+const exportQasmBtn = document.getElementById("export-qasm");
 
 const qubitSelect = document.getElementById("qubits");
 
 const circuitImage = document.getElementById("circuit-image");
 
-const statsPanel = document.getElementById("stats");
-
+const statsPanel = document.getElementById("statistics");
 const countsPanel = document.getElementById("counts");
-
+const histogramPanel = document.getElementById("histogram");
 const statevectorPanel = document.getElementById("statevector");
+const undoBtn = document.getElementById("undo");
+const redoBtn = document.getElementById("redo");
+const downloadBtn = document.getElementById("download");
 
 
-// ======================================================
-// Helper
-// ======================================================
+const MULTI_QUBIT_GATES = [
+    "CX",
+    "CY",
+    "CZ",
+    "CH",
+    "SWAP",
+    "CCX"
+];
+
+
+
+/* ==========================================================================
+   HISTOGRAM
+========================================================================== */
+
+let histogramChart = null;
+
+
+
+/* ==========================================================================
+   API HELPER
+========================================================================== */
 
 async function postJSON(url, data = {}) {
 
-    const response = await fetch(url, {
+    try {
 
-        method: "POST",
+        const response = await fetch(url, {
 
-        headers: {
+            method: "POST",
 
-            "Content-Type": "application/json"
+            headers: {
 
-        },
+                "Content-Type": "application/json"
 
-        body: JSON.stringify(data)
+            },
 
-    });
+            body: JSON.stringify(data)
 
-    return await response.json();
+        });
+
+        return await response.json();
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        return {
+
+            success: false,
+
+            error: error.message
+
+        };
+
+    }
 
 }
 
-// ======================================================
-// Circuit Image
-// ======================================================
 
-function updateCircuitImage(image) {
 
-    if (!image)
+/* ==========================================================================
+   IMAGE
+========================================================================== */
+
+function updateCircuitImage(imageUrl) {
+
+    if (!imageUrl)
         return;
 
-    circuitImage.src = image + "?t=" + Date.now();
+    const placeholder =
+        document.getElementById("preview-placeholder");
+
+    if (placeholder)
+        placeholder.style.display = "none";
+
+    circuitImage.style.display = "block";
+
+    circuitImage.src =
+        imageUrl + "?t=" + Date.now();
 
 }
 
 
-// ======================================================
-// Statistics
-// ======================================================
+
+/* ==========================================================================
+   QUBIT DROPDOWNS
+========================================================================== */
+
+function populateQubits(count) {
+
+    targetSelect.innerHTML = "";
+    controlSelect.innerHTML = "";
+
+    for (let i = 0; i < count; i++) {
+
+        const targetOption = document.createElement("option");
+        targetOption.value = i;
+        targetOption.textContent = "q" + i;
+        targetSelect.appendChild(targetOption);
+
+        const controlOption = document.createElement("option");
+        controlOption.value = i;
+        controlOption.textContent = "q" + i;
+        controlSelect.appendChild(controlOption);
+    }
+}
+
+
+
+/* ==========================================================================
+   SHOW / HIDE CONTROL QUBIT
+========================================================================== */
+
+function updateControlVisibility() {
+
+    console.log("Gate Changed:", gateSelect.value);
+
+    if (MULTI_QUBIT_GATES.includes(gateSelect.value)) {
+
+        console.log("SHOW");
+
+        controlContainer.style.display = "block";
+
+    } else {
+
+        console.log("HIDE");
+
+        controlContainer.style.display = "none";
+
+    }
+
+}
+
+
+
+/* ==========================================================================
+   STATISTICS
+========================================================================== */
 
 function updateStatistics(stats) {
 
@@ -83,39 +184,85 @@ function updateStatistics(stats) {
 
     statsPanel.innerHTML = `
 
-        <p><strong>Qubits:</strong> ${stats.qubits}</p>
+        <div class="stat-row">
 
-        <p><strong>Depth:</strong> ${stats.depth}</p>
+            <span>Qubits</span>
 
-        <p><strong>Gate Count:</strong> ${stats.gate_count}</p>
+            <span>${stats.qubits}</span>
 
-        <p><strong>Measurements:</strong> ${stats.measurements}</p>
+        </div>
+
+        <div class="stat-row">
+
+            <span>Depth</span>
+
+            <span>${stats.depth}</span>
+
+        </div>
+
+        <div class="stat-row">
+
+            <span>Gate Count</span>
+
+            <span>${stats.gate_count}</span>
+
+        </div>
+
+        <div class="stat-row">
+
+            <span>Measurements</span>
+
+            <span>${stats.measurements}</span>
+
+        </div>
 
     `;
 
 }
 
-// ======================================================
-// Measurement Counts
-// ======================================================
+
+
+/* ==========================================================================
+   COUNTS TABLE
+========================================================================== */
 
 function updateCounts(counts) {
 
-    if (!counts) {
+    if (!counts || Object.keys(counts).length === 0) {
 
-        countsPanel.innerHTML = "";
+        countsPanel.innerHTML =
+
+            `<p class="placeholder">
+
+                Run simulation to view counts.
+
+            </p>`;
 
         return;
 
     }
 
-    let html = "<h3>Measurement Counts</h3>";
+    let html = `
 
-    html += "<table>";
+        <table class="results-table">
 
-    html += "<tr><th>State</th><th>Counts</th></tr>";
+        <thead>
 
-    for (const state in counts) {
+            <tr>
+
+                <th>State</th>
+
+                <th>Counts</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+    `;
+
+    Object.entries(counts).forEach(([state, value]) => {
 
         html += `
 
@@ -123,267 +270,446 @@ function updateCounts(counts) {
 
                 <td>${state}</td>
 
-                <td>${counts[state]}</td>
+                <td>${value}</td>
 
             </tr>
 
         `;
 
-    }
+    });
 
-    html += "</table>";
+    html += `
+
+        </tbody>
+
+        </table>
+
+    `;
 
     countsPanel.innerHTML = html;
 
 }
-
-// ======================================================
-// Statevector
-// ======================================================
+/* ==========================================================================
+   STATEVECTOR TABLE
+========================================================================== */
 
 function updateStatevector(statevector) {
 
-    if (!statevector) {
+    if (!statevector || Object.keys(statevector).length === 0) {
 
-        statevectorPanel.innerHTML = "";
+        statevectorPanel.innerHTML = `
+            <p class="placeholder">
+                Run simulation to view statevector.
+            </p>
+        `;
 
         return;
 
     }
 
-    let html = "<h3>Statevector</h3>";
+    let html = `
+        <table class="results-table">
 
-    html += "<table>";
+            <thead>
 
-    html += "<tr>";
+                <tr>
 
-    html += "<th>Basis</th>";
+                    <th>Basis</th>
 
-    html += "<th>Probability</th>";
+                    <th>Amplitude</th>
 
-    html += "</tr>";
+                </tr>
 
-    for (const basis in statevector) {
+            </thead>
+
+            <tbody>
+    `;
+
+    Object.entries(statevector).forEach(([basis, amplitude]) => {
 
         html += `
-
             <tr>
 
-                <td>|${basis}⟩</td>
+                <td>${basis}</td>
 
-                <td>${statevector[basis].probability}</td>
+                <td>${amplitude}</td>
 
             </tr>
-
         `;
 
-    }
+    });
 
-    html += "</table>";
+    html += `
+            </tbody>
+
+        </table>
+    `;
 
     statevectorPanel.innerHTML = html;
 
 }
 
-// ======================================================
-// Gate Selection
-// ======================================================
 
-gateButtons.forEach(button => {
+/* ==========================================================================
+   HISTOGRAM
+========================================================================== */
 
-    button.addEventListener("click", () => {
+function updateHistogram(counts) {
 
-        gateButtons.forEach(btn =>
-            btn.classList.remove("active")
-        );
+    const canvas = document.getElementById("histogramChart");
 
-        button.classList.add("active");
+    if (!canvas)
+        return;
 
-        selectedGate = button.dataset.gate;
+    const ctx = canvas.getContext("2d");
+
+    if (histogramChart) {
+
+        histogramChart.destroy();
+
+    }
+
+    if (!counts || Object.keys(counts).length === 0)
+        return;
+
+    histogramChart = new Chart(ctx, {
+
+        type: "bar",
+
+        data: {
+
+            labels: Object.keys(counts),
+
+            datasets: [
+
+                {
+
+                    label: "Counts",
+
+                    data: Object.values(counts)
+
+                }
+
+            ]
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
+
+            plugins: {
+
+                legend: {
+
+                    display: false
+
+                }
+
+            },
+
+            scales: {
+
+                y: {
+
+                    beginAtZero: true
+
+                }
+
+            }
+
+        }
 
     });
 
-});
+}
 
-// ======================================================
-// Create Circuit
-// ======================================================
+
+/* ==========================================================================
+   CREATE CIRCUIT
+========================================================================== */
 
 newCircuitBtn.addEventListener("click", async () => {
 
-    const qubits = parseInt(qubitSelect.value);
-
-    const result = await postJSON(
-        "/new_circuit",
-        {
-            qubits: qubits
-        }
-    );
+    const result = await postJSON("/new_circuit", {
+        qubits: parseInt(qubitSelect.value)
+    });
 
     if (!result.success) {
-
         alert(result.error);
-
         return;
-
     }
 
+    // Refresh the UI
     updateCircuitImage(result.image);
-
     updateStatistics(result.stats);
+
+    // Repopulate qubit dropdowns
+    populateQubits(parseInt(qubitSelect.value));
+
+    // Update Control Qubit visibility
+    updateControlVisibility();
+
+});
+
+/* ==========================================================================
+   HELPER FUNCTIONS
+========================================================================== */
+function resetOutputPanels() {
 
     updateCounts({});
 
     updateStatevector({});
 
-    updateTargetList(qubits);
+    updateHistogram({});
 
-});
+    }
 
-// ======================================================
-// Apply Gate
-// ======================================================
-
+/* ==========================================================================
+   APPLY GATE
+========================================================================== */
+if (applyGateBtn) {
 applyGateBtn.addEventListener("click", async () => {
 
-    const result = await postJSON(
+    const gate = gateSelect.value;
+    const target = parseInt(targetSelect.value);
 
-        "/apply_gate",
+    let control = null;
 
-        {
+    if (MULTI_QUBIT_GATES.includes(gate)) {
+        control = parseInt(controlSelect.value);
+    }
 
-            gate: selectedGate,
+    console.log({
+        gate,
+        target,
+        control
+    });
 
-            target: parseInt(
-                targetSelect.value
-            )
+
+    const payload = {
+        gate: gate,
+        target: target,
+        control: control
+    };
+
+    // THIS LINE WAS MISSING
+    const result = await postJSON("/apply_gate", payload);
+
+    if (!result.success) {
+        alert(result.error);
+        return;
+    }
+
+    updateCircuitImage(result.image);
+    updateStatistics(result.stats);
+
+});
+}
+
+/* ==========================================================================
+   SIMULATE
+========================================================================== */
+if (simulateBtn) {
+    simulateBtn.addEventListener("click", async () => {
+
+        simulateBtn.disabled = true;
+        setLoading(true);
+
+        try {
+
+            const result = await postJSON("/simulate");
+
+            if (!result.success) {
+
+                alert(result.error);
+                return;
+
+            }
+
+            updateCircuitImage(result.image);
+
+            updateCounts(result.counts);
+            updateStatevector(result.statevector);
+
+        } catch (error) {
+
+            alert("Simulation failed.");
+
+        } finally {
+
+            simulateBtn.disabled = false;
+            setLoading(false);
 
         }
 
-    );
-
-    if (!result.success) {
-
-        alert(result.error);
-
-        return;
-
-    }
-
-    updateCircuitImage(result.image);
-
-    updateStatistics(result.stats);
-
-});
-
-// ======================================================
-// Simulation
-// ======================================================
-
-simulateBtn.addEventListener("click", async () => {
-
-    const result = await postJSON(
-        "/simulate"
-    );
-
-    if (!result.success) {
-
-        alert(result.error);
-
-        return;
-
-    }
-
-    updateCircuitImage(result.image);
-
-    updateStatistics(result.stats);
-
-    updateCounts(result.counts);
-
-    updateStatevector(result.statevector);
-
-});
-
-// ======================================================
-// Reset
-// ======================================================
-
-resetBtn.addEventListener("click", async () => {
-
-    const result = await postJSON(
-        "/reset"
-    );
-
-    if (!result.success) {
-
-        alert(result.error);
-
-        return;
-
-    }
-
-    updateCircuitImage(result.image);
-
-    updateStatistics(result.stats);
-
-    updateCounts({});
-
-    updateStatevector({});
-
-});
-
-// ======================================================
-// Download
-// ======================================================
-
-document
-
-.getElementById("download")
-
-.addEventListener(
-
-    "click",
-
-    () => {
-
-        window.location = "/download";
-
-    }
-
-);
-
-// ======================================================
-// Target Selector
-// ======================================================
-
-function updateTargetList(qubits) {
-
-    targetSelect.innerHTML = "";
-
-    for (let i = 0; i < qubits; i++) {
-
-        const option = document.createElement("option");
-
-        option.value = i;
-
-        option.textContent = `q${i}`;
-
-        targetSelect.appendChild(option);
-
-    }
-
+    });
 }
 
-// ======================================================
-// Initial Setup
-// ======================================================
 
-window.onload = () => {
+/* ==========================================================================
+   RESET
+========================================================================== */
+if (resetBtn) {
+    resetBtn.addEventListener("click", async () => {
 
-    gateButtons[0].classList.add("active");
+        if (!confirm("Reset the current circuit?")) {
+            return;
+        }
 
-    updateTargetList(
-        parseInt(qubitSelect.value)
-    );
+        const result = await postJSON("/reset");
 
-};
+        if (!result.success) {
+            alert(result.error);
+            return;
+        }
+
+
+        resetOutputPanels();
+
+    });
+}
+/* ==========================================================================
+   LOAD
+========================================================================== */
+if (loadCircuitBtn) {
+    loadCircuitBtn.addEventListener("click", async () => {
+
+        if (!confirm("Load the current circuit?")) {
+            return;
+        }
+
+        const result = await postJSON("/load");
+
+        if (!result.success) {
+            alert(result.error);
+            return;
+        }
+
+
+        resetOutputPanels();
+
+    });
+}
+
+/* ==========================================================================
+   DOWNLOAD
+========================================================================== */
+if (downloadBtn) {
+    downloadBtn.addEventListener("click", () => {
+
+        window.location.href = "/download";
+
+    });
+}
+
+/* ==========================================================================
+   EXPORT OPENQASM
+========================================================================== */
+if (exportQasmBtn) {
+    exportQasmBtn.addEventListener("click", () => {
+
+        window.location.href = "/export_qasm";
+
+    });
+}
+
+/* ==========================================================================
+   PLACEHOLDER BUTTONS
+========================================================================== */
+
+if (saveCircuitBtn) {
+    saveCircuitBtn.addEventListener("click", async () => {
+
+        alert("Save Circuit feature will be available in Version 2.1.");
+
+    });
+}
+
+
+
+    /* ==========================================================================
+       GATE CHANGE
+    ========================================================================== */
+
+    gateSelect.addEventListener("change", updateControlVisibility);
+
+
+    /* ==========================================================================
+       INITIALIZE
+    ========================================================================== */
+
+    document.addEventListener("DOMContentLoaded", () => {
+
+        populateQubits(parseInt(qubitSelect.value));
+        updateControlVisibility();
+
+        updateStatistics({
+            qubits: "-",
+            depth: "-",
+            gate_count: "-",
+            measurements: "-"
+        });
+
+        updateCounts({});
+
+        updateStatevector({});
+
+    });
+
+    undoBtn.addEventListener("click", async () => {
+
+        const result = await postJSON("/undo");
+
+        if (!result.success) {
+            alert(result.error);
+            return;
+        }
+
+
+    });
+
+    redoBtn.addEventListener("click", async () => {
+
+        const result = await postJSON("/redo");
+
+        if (!result.success) {
+            alert(result.error);
+            return;
+        }
+
+
+    });
+
+    loadCircuitBtn.onclick = async () => {
+
+        const file = document
+            .getElementById("project-file")
+            .files[0];
+
+        const form = new FormData();
+
+        form.append("file", file);
+
+        const response = await fetch(
+            "/load_project",
+
+            {
+
+                method: "POST",
+
+                body: form
+
+            }
+        );
+
+        const result = await response.json();
+
+
+    };
+
+    function setLoading(isLoading) {
+        document.body.style.cursor = isLoading ? "wait" : "default";
+    }
