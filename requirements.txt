@@ -1,6 +1,9 @@
-Flask==3.1.2
-qiskit==2.5.0
-qiskit-aer==0.17.2
-matplotlib>=3.10
-pylatexenc>=2.10
-numpy>=2.3
+Flask
+waitress
+gunicorn
+qiskit
+qiskit-aer
+matplotlib
+numpy
+pylatexenc
+Pillow
