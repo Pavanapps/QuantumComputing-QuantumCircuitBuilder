@@ -4,135 +4,190 @@
 <head>
 
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
 
     <title>Quantum Circuit Builder Pro</title>
 
     <link rel="stylesheet"
           href="{{ url_for('static', filename='style.css') }}">
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet">
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 
 </head>
 
 <body>
 
-<header>
+<header class="header">
 
-    <h1>⚛ Quantum Circuit Builder Pro</h1>
-
-    <p>Build • Visualize • Simulate Quantum Circuits</p>
+    <h1>
+        <i class="bi bi-cpu"></i>
+        Quantum Circuit Builder Pro
+    </h1>
 
 </header>
 
-<div class="dashboard">
+<main class="main-layout">
 
     <!-- LEFT PANEL -->
 
-    <div class="card">
+    <aside class="card control-panel">
 
-        <h2>Circuit Builder</h2>
+        <h2>Circuit Controls</h2>
 
-        <label>Number of Qubits</label>
+        <div class="form-group">
 
-        <select id="qubits">
+            <label>Number of Qubits</label>
 
-            <option>1</option>
-            <option selected>2</option>
-            <option>3</option>
-            <option>4</option>
-            <option>5</option>
+            <select id="qubits">
 
-        </select>
+                <option value="1">1</option>
+                <option value="2" selected>2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
 
-        <button id="new-circuit" class="primary">
-    Create Circuit
-</button>
-
-        <label>Select Gate</label>
-
-        <div class="gate-grid">
-
-                <button class="gate-btn" data-gate="H">H</button>
-                <button class="gate-btn" data-gate="X">X</button>
-                <button class="gate-btn" data-gate="Y">Y</button>
-                <button class="gate-btn" data-gate="Z">Z</button>
-                <button class="gate-btn" data-gate="S">S</button>
-                <button class="gate-btn" data-gate="T">T</button>
+            </select>
 
         </div>
 
-        <label>Target Qubit</label>
+        <button
+            id="new-circuit"
+            class="btn btn-primary">
 
-        <select id="target">
+            <i class="bi bi-plus-circle"></i>
 
-            <option>q0</option>
-            <option>q1</option>
+            Create Circuit
 
-        </select>
+        </button>
 
-        <button id="apply-gate" class="primary">
-    Apply Gate
-</button>
+        <hr>
 
-        <button id="reset" class="secondary">
-    Reset Circuit
-</button>
+        <div class="form-group">
 
-    </div>
+            <label>Quantum Gate</label>
+
+            <select id="gate">
+
+                <optgroup label="Single Qubit">
+
+                    <option value="H">Hadamard</option>
+                    <option value="X">Pauli X</option>
+                    <option value="Y">Pauli Y</option>
+                    <option value="Z">Pauli Z</option>
+                    <option value="S">Phase S</option>
+                    <option value="T">Phase T</option>
+
+                </optgroup>
+
+                <optgroup label="Two Qubit">
+
+                    <option value="CX">Controlled X</option>
+                    <option value="CZ">Controlled Z</option>
+                    <option value="SWAP">SWAP</option>
+
+                </optgroup>
+
+            </select>
+
+        </div>
+
+        <div class="form-group">
+
+            <label>Target Qubit</label>
+
+            <select id="target-qubit"></select>
+
+        </div>
+
+        <div
+            id="control-container"
+            class="form-group"
+            style="display:none;">
+
+            <label>Control Qubit</label>
+
+            <select id="control-qubit"></select>
+
+        </div>
+
+        <button
+            id="apply-gate"
+            class="btn btn-success">
+
+            <i class="bi bi-lightning-charge"></i>
+
+            Apply Gate
+
+        </button>
+
+    </aside>
 
     <!-- CENTER -->
 
-    <div class="card">
+    <section class="card preview-panel">
 
         <h2>Circuit Preview</h2>
 
-        <div class="preview">
-
-            <h3>Quantum Circuit</h3>
+        <div class="preview-area">
 
             <img
-    id="circuit-image"
-    src=""
-    alt="Quantum Circuit"
-    style="max-width:100%;"
->
+                id="circuit-image"
+                src="/circuit_image"
+                alt="Circuit Preview">
 
         </div>
 
-    </div>
+    </section>
 
     <!-- RIGHT -->
 
-    <div class="card">
+    <aside class="card statistics-panel">
 
         <h2>Statistics</h2>
 
-        <div id="stats"></div>
+        <div id="statistics">
 
-       <div id="stats"></div>
+            <div class="stat-row">
 
-       <div id="stats"></div>
+                <span>Qubits</span>
 
-        <div id="stats"></div>
+                <span id="stat-qubits">0</span>
 
-    </div>
+            </div>
 
-</div>
+            <div class="stat-row">
 
-<div class="bottom">
+                <span>Depth</span>
 
-    <div class="card">
+                <span id="stat-depth">0</span>
 
-        <h2>Simulation Results</h2>
+            </div>
 
-<div id="statevector"></div>
+            <div class="stat-row">
 
-    </div>
+                <span>Gate Count</span>
+
+                <span id="stat-gates">0</span>
+
+            </div>
+
+            <div class="stat-row">
+
+                <span>Measurements</span>
+
+                <span id="stat-measurements">0</span>
+
+            </div>
+
+        </div>
+
+    </aside>
+
+</main>
+
+<section class="results-layout">
 
     <div class="card">
 
@@ -142,19 +197,67 @@
 
     </div>
 
-</div>
+    <div class="card">
 
-<div class="actions">
+        <h2>Statevector</h2>
 
-    <button id="simulate" class="success">
-    Run Simulation
-</button>
+        <div id="statevector"></div>
 
-    <button id="download" class="download">
-    Download PNG
-</button>
+    </div>
 
-</div>
+    <div class="card">
+
+        <h2>Histogram</h2>
+
+        <canvas id="histogramChart"></canvas>
+
+    </div>
+
+</section>
+
+<section class="toolbar">
+
+    <button id="simulate" class="btn btn-warning">
+        <i class="bi bi-play-fill"></i>
+        Run Simulation
+    </button>
+
+    <button id="reset" class="btn">
+        Reset
+    </button>
+
+    <button id="undo" class="btn">
+        Undo
+    </button>
+
+    <button id="redo" class="btn">
+        Redo
+    </button>
+
+    <button id="save-project" class="btn">
+        Save
+    </button>
+
+    <button id="load-project" class="btn">
+        Load
+    </button>
+
+    <button id="export-qasm" class="btn">
+        Export QASM
+    </button>
+
+    <button id="download" class="btn">
+        PNG
+    </button>
+
+</section>
+
+<input
+    type="file"
+    id="project-file"
+    hidden>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 
